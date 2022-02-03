@@ -1,0 +1,55 @@
+version: '3.4'
+services:
+  wireguard:      
+    image: linuxserver/wireguard
+    container_name: wireguard
+    hostname: wireguard
+    networks:
+      - proxynet
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:     
+      - PUID=1001
+      - PGID=1001
+      - PEERS=vpnminer01
+      - PEERSDNS=auto
+      - TZ=Europe/London
+      - SERVERURL=wireguard.mydomain.com
+      - SERVERPORT=51820 #optional
+      - INTERNAL_SUBNET=10.100.10.0 #optional
+    volumes:
+      - /docker/wireguard/config:/config
+      - /lib/modules:/lib/modules      
+    ports:
+      - 51820:51820/udp
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    restart: unless-stopped
+
+  nginx-proxy-manager:
+    container_name: nginx-proxy-manager
+    image: jc21/nginx-proxy-manager:latest
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    networks:
+     - proxynet
+    depends_on:
+      - wireguard
+    ports:
+      - 80:80
+      - 443:443
+      - 9099:81 # Admin Web Port
+    volumes:
+      - /docker/nginx-proxy-manager/data:/data
+      - /docker/nginx-proxy-manager/letsencrypt:/etc/letsencrypt
+      - type: bind
+        source: /docker/nginx-proxy-manager/init/03-routing
+        target: /etc/cont-init.d/03-routing
+
+networks:
+  proxynet:
+    name: custom_network
+
